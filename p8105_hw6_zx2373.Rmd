@@ -51,7 +51,7 @@ homicide_df =
   select(city_state, resolution, victim_age, victim_race, victim_sex)
 ```
 
-Start with one city.
+Start with Baltimore, MD.
 
 ```{r}
 baltimore_df =
@@ -65,11 +65,17 @@ glm(resolution ~ victim_age + victim_race + victim_sex,
   mutate(
     OR = exp(estimate), 
     CI_lower = exp(estimate - 1.96 * std.error),
-    CI_upper = exp(estimate + 1.96 * std.error)
-  ) %>% 
-  select(term, OR, starts_with("CI")) %>% 
-  knitr::kable(digits = 3)
+    CI_upper = exp(estimate + 1.96 * std.error),
+    p_val = rstatix::p_format(p.value, digits = 2)) %>% 
+  select(term, OR, CI_lower,CI_upper, p_val) %>% 
+  mutate(term = str_replace(term, "victim_age", "Victim age"),
+         term = str_replace(term, "victim_race", "Victim Race: "),
+         term = str_replace(term, "victim_sex", "Victim Sex: ")) %>% 
+  knitr::kable(digits = 3, align = "lccc", 
+               col.names = c("Term", "Estimated adjusted OR", "CI lower bound", "CI upper bound", "p-value"))
 ```
+
+For the city of Baltimore, MD, the homicides whose victim is male are significantly less like to be resolved than those whose victim is female.
 
 Try this across cities.
 
@@ -87,21 +93,26 @@ models_results_df =
   mutate(
     OR = exp(estimate),
     CI_lower = exp(estimate - 1.96 * std.error),
-    CI_upper = exp(estimate + 1.96 * std.error)
+    CI_upper = exp(estimate + 1.96 * std.error),
+    p_val = rstatix::p_format(p.value, digits = 2)
   ) %>% 
-  select(city_state, term, OR, starts_with("CI")) 
+  filter(term == "victim_sexMale") %>% 
+  select(city_state, OR, CI_lower,CI_upper, p_val) 
+
+models_results_df %>% 
+  knitr::kable(digits = 3, align = "llccc", col.names = c("City", "Estimated adjusted OR", "CI lower bound", "CI upper bound", "p-value"))
 ```
 
 Make a plot of estimated ORs and CIs for each city. 
 
 ```{r}
 models_results_df %>% 
-  filter(term == "victim_sexMale") %>% 
   mutate(city_state = fct_reorder(city_state, OR)) %>% 
   ggplot(aes(x = city_state, y = OR)) + 
   geom_point() + 
   geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper)) + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "City", y = "Estimated OR with CI")
 ```
 
 The plot shows that odds ratios are lower than 1 in most cities, indicating that it is less often for homicides in which the victim is male to be resolved by arrest.
